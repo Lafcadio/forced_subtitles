@@ -2,13 +2,18 @@ from gdata.spreadsheet.service import SpreadsheetsService
 import pickle
 import time
 import re, string
+import os
+import glob
 
-DEBUG = False
+from xbmcCommand import sendRequest
+
+
+DEBUG = True
 
 
 class SheetQuerier:
     key = "0AkGO8UqErL6idDhYYjg1ZXlORnRaM3ZhTks4Z3FrYlE"
-    worksheets = {"DVD" : "title", "Blu-ray" : "title"}
+    worksheets = {"DVD" : "movietitle", "Blu-ray" : "movietitle"}
     cache = "spreadsheet_cache.p"
     cache_timeout = 60*60*24*7
     prefixes = ["The", "A"]
@@ -80,5 +85,25 @@ class SheetQuerier:
         # Return the lowercase version
         return title.lower()
 
+def checkAllMovies():
+    q = SheetQuerier()
+    movies = sendRequest("VideoLibrary.GetMovies", {"properties" : ["trailer", "year", "file"]})
+    for movie in movies["result"]["movies"]:
+        hit = q.query_exact(movie["label"])
+        if hit is "None":
+            continue
+        if hit is False:
+            continue
 
-q = SheetQuerier()
+        sub_name_pattern = os.path.join(os.path.dirname(movie["file"]), "Subtitles", "%s.en.forced.*" % os.path.splitext(os.path.basename(movie["file"]))[0])
+        if len(glob.glob(sub_name_pattern)):
+            continue
+
+        if os.path.exists(os.path.join(os.path.dirname(movie["file"]), "Subtitles", ".hardcoded")):
+            continue
+
+        # No subs found, and subs needed
+        print movie["label"], "=>", hit
+
+if __name__ == "__main__":
+    checkAllMovies()
